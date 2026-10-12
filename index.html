@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sound-to-Binary Converter</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+  <h1>Sound-to-Binary Converter</h1>
+  <p>Mary Chris Malinao &bull; Section-36</p>
+  <svg viewBox="0 0 900 70" preserveAspectRatio="none" aria-hidden="true">
+    <path d="M0 35 C 37 -5, 75 -5, 112 35 S 187 75, 225 35 S 300 -5, 337 35 S 412 75, 450 35 S 525 -5, 562 35 S 637 75, 675 35 S 750 -5, 787 35 S 862 75, 900 35"
+          fill="none" stroke="#A9BCD6" stroke-width="3" stroke-linecap="round"/>
+  </svg>
+</header>
+
+<main>
+
+  <div class="card">
+    <h2>Wave Settings</h2>
+    <div class="inputs">
+      <label>Frequency (Hz)
+        <input type="number" id="frequency" value="1000">
+        <small class="field-error" id="errFrequency"></small>
+      </label>
+      <label>Amplitude (0 to 1)
+        <input type="number" id="amplitude" value="1" step="0.1">
+        <small class="field-error" id="errAmplitude"></small>
+      </label>
+      <label>Number of samples (2 to 64)
+        <input type="number" id="samples" value="4">
+        <small class="field-error" id="errSamples"></small>
+      </label>
+      <label>Bits per sample (1 to 8)
+        <input type="number" id="bits" value="2">
+        <small class="field-error" id="errBits"></small>
+      </label>
+    </div>
+
+    <div class="hearing" id="hearing"></div>
+
+    <div class="btn-row">
+      <button id="convertBtn">Convert</button>
+      <button id="playBtn" class="secondary">&#9654; Play (1 sec)</button>
+    </div>
+
+    <div class="feedback" id="feedback"></div>
+
+    <div class="wave-box">
+      <canvas id="waveCanvas"></canvas>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Wave Facts</h2>
+    <div class="facts">
+      <div class="fact"><span>Amplitude</span><b id="outAmplitude">—</b></div>
+      <div class="fact"><span>Frequency</span><b id="outFrequency">—</b></div>
+      <div class="fact"><span>Period</span><b id="outPeriod">—</b></div>
+      <div class="fact"><span>Wavelength</span><b id="outWavelength">—</b></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Samples</h2>
+    <div class="table-wrap">
+      <table id="sampleTable">
+        <thead>
+          <tr><th>Sample #</th><th>Time (ms)</th><th>Amplitude</th><th>Level</th><th>Binary</th></tr>
+        </thead>
+        <tbody id="sampleBody"></tbody>
+      </table>
+    </div>
+    <h2 style="margin-top:1.2rem">Binary Result</h2>
+    <div class="binary-result" id="binaryResult"></div>
+    <p class="total">Total bits: <span id="totalBits">—</span></p>
+  </div>
+
+  <div class="card">
+    <h2>Warnings</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Rule (page shows a warning when...)</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Frequency is 0 or less</td><td id="statFrequency">—</td></tr>
+          <tr><td>Amplitude is below 0 or above 1</td><td id="statAmplitude">—</td></tr>
+          <tr><td>Samples is not a whole number from 2 to 64</td><td id="statSamples">—</td></tr>
+          <tr><td>Bits is not a whole number from 1 to 8</td><td id="statBits">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="warning" id="warning"></div>
+  </div>
+
+  <div class="card">
+    <h2>Test Results</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Test</th><th>Frequency</th><th>Amplitude</th><th>Samples</th><th>Bits</th>
+            <th>Period</th><th>Wavelength</th><th>Total bits</th><th>Binary result</th>
+          </tr>
+        </thead>
+        <tbody id="testBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Explain It</h2>
+    <ol class="explain">
+      <li>In your own words, how does your app change a sound wave into binary? Name the three steps.
+        <div class="answer">My app takes one full sound wave and measures how high it is at evenly spaced moments in time. Then it rounds each height to the nearest level, and finally it writes that level as 0s and 1s.</div></li>
+      <li>Run Test A again with 2 bits, then 6 bits. Which gives more detail about the wave, and why?
+        <div class="answer">6 bits gives more detail. With 2 bits there are only 4 levels to choose from, but with 6 bits there are 64, so the binary follows the real height of the wave much more closely. The trade-off is that it uses more bits.</div></li>
+      <li>Which test has the longest wavelength? How is wavelength connected to frequency?
+        <div class="answer">Test B has the longest wavelength (about 1.72 m) because it has the lowest frequency, 200 Hz. When the frequency goes up, the wavelength gets shorter, since wavelength is the speed of sound divided by the frequency.</div></li>
+      <li>What was the hardest stage to build, and how did you fix it?
+        <div class="answer">The hardest part was the binary stage. My values kept coming out too short, like 10 instead of 010, so I added zeros in front until every value had exactly the right number of bits.</div></li>
+    </ol>
+  </div>
+
+</main>
+
+<footer>Multimedia &bull; Sound-to-Binary Activity</footer>
+
+<script>
+  function calculate(frequency, amplitude, samples, bits) {
+    var period = (1 / frequency) * 1000;
+    var wavelength = 343 / frequency;
+    var levels = Math.pow(2, bits);
+
+    var wavelengthText;
+    if (wavelength >= 1) {
+      wavelengthText = wavelength.toFixed(2) + " m";
+    } else {
+      wavelengthText = (wavelength * 100).toFixed(1) + " cm";
+    }
+
+    var rows = [];
+    var binaryList = [];
+
+    for (var i = 0; i < samples; i++) {
+      var time = i * period / samples;
+      var height = amplitude * Math.sin(2 * Math.PI * i / samples);
+      var level = Math.floor((height + 1) / 2 * (levels - 1) + 0.5 + 1e-9);
+      var binary = level.toString(2).padStart(bits, "0");
+
+      var heightText = height.toFixed(2);
+      if (heightText === "-0.00") { heightText = "0.00"; }
+
+      binaryList.push(binary);
+      rows.push({
+        number: i + 1,
+        time: time.toFixed(2),
+        height: heightText,
+        level: level,
+        binary: binary
+      });
+    }
+
+    return {
+      periodText: period.toFixed(2) + " ms",
+      wavelengthText: wavelengthText,
+      rows: rows,
+      binaryText: binaryList.join(" "),
+      totalBits: samples * bits
+    };
+  }
+
+  function showWarning(messages) {
+    document.getElementById("warning").innerHTML =
+      "&#9888; Warning<br>" + messages.join("<br>");
+  }
+
+  function clearWarning() {
+    document.getElementById("warning").innerHTML = "";
+  }
+
+  function setStatus(id, message) {
+    var cell = document.getElementById(id);
+    if (message === "") {
+      cell.textContent = "\u2714 Valid";
+      cell.className = "ok";
+    } else {
+      cell.textContent = "\u26A0 " + message;
+      cell.className = "bad";
+    }
+  }
+
+  function setFieldError(inputId, errorId, message) {
+    var input = document.getElementById(inputId);
+    var error = document.getElementById(errorId);
+    input.classList.remove("invalid");
+    if (message === "") {
+      error.textContent = "";
+      return;
+    }
+    void input.offsetWidth;
+    input.classList.add("invalid");
+    error.textContent = message;
+  }
+
+  function showFeedback(text) {
+    document.getElementById("feedback").textContent = text;
+  }
+
+  function updateHearing() {
+    var box = document.getElementById("hearing");
+    var text = document.getElementById("frequency").value;
+    var f = parseFloat(text);
+
+    box.className = "hearing";
+
+    if (isNaN(f) || f <= 0) {
+      box.textContent = "";
+      return;
+    }
+
+    if (f < 20) {
+      box.textContent = "\u2139 " + text + " Hz is too low for humans to hear (below 20 Hz). Convert still works, but Play will not make a sound.";
+      box.classList.add("out");
+    } else if (f > 20000) {
+      box.textContent = "\u2139 " + text + " Hz is too high for humans to hear (above 20000 Hz). Convert still works, but Play will not make a sound.";
+      box.classList.add("out");
+    } else {
+      box.textContent = "\u2714 " + text + " Hz is in the range of human hearing (20 to 20000 Hz).";
+      box.classList.add("in");
+    }
+  }
+
+  var canvas = document.getElementById("waveCanvas");
+  var ctx = canvas.getContext("2d");
+  var animationId = null;
+
+  function sizeCanvas() {
+    var ratio = window.devicePixelRatio || 1;
+    canvas.width = canvas.clientWidth * ratio;
+    canvas.height = canvas.clientHeight * ratio;
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  }
+
+  function drawBackground() {
+    var w = canvas.clientWidth;
+    var h = canvas.clientHeight;
+    ctx.clearRect(0, 0, w, h);
+    ctx.strokeStyle = "rgba(169, 188, 214, 0.25)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(0, h / 2);
+    ctx.lineTo(w, h / 2);
+    ctx.stroke();
+  }
+
+  function drawIdle() {
+    sizeCanvas();
+    drawBackground();
+    var w = canvas.clientWidth;
+    var h = canvas.clientHeight;
+    ctx.strokeStyle = "#A9BCD6";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(0, h / 2);
+    ctx.lineTo(w, h / 2);
+    ctx.stroke();
+  }
+
+  function drawWave(analyser, frequency, sampleRate) {
+    var w = canvas.clientWidth;
+    var h = canvas.clientHeight;
+    var data = new Float32Array(analyser.fftSize);
+    analyser.getFloatTimeDomainData(data);
+
+    var start = 0;
+    for (var i = 1; i < data.length / 2; i++) {
+      if (data[i - 1] < 0 && data[i] >= 0) {
+        start = i;
+        break;
+      }
+    }
+
+    var span = Math.round(3 * sampleRate / frequency);
+    if (span < 128) { span = 128; }
+    if (span > data.length - start) { span = data.length - start; }
+
+    drawBackground();
+    ctx.strokeStyle = "#A9BCD6";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (var x = 0; x < w; x++) {
+      var index = start + Math.floor(x / w * span);
+      var y = h / 2 - data[index] * 5 * (h / 2) * 0.85;
+      if (x === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.stroke();
+  }
+
+  drawIdle();
+  updateHearing();
+
+  document.getElementById("frequency").addEventListener("input", updateHearing);
+
+  window.addEventListener("resize", function () {
+    if (animationId === null) {
+      drawIdle();
+    }
+  });
+
+  document.getElementById("convertBtn").addEventListener("click", function () {
+    var frequencyText = document.getElementById("frequency").value;
+    var amplitudeText = document.getElementById("amplitude").value;
+    var frequency = parseFloat(frequencyText);
+    var amplitude = parseFloat(amplitudeText);
+    var samples = Number(document.getElementById("samples").value);
+    var bits = Number(document.getElementById("bits").value);
+
+    updateHearing();
+
+    var frequencyMsg = "";
+    var amplitudeMsg = "";
+    var samplesMsg = "";
+    var bitsMsg = "";
+
+    if (isNaN(frequency) || frequency <= 0) {
+      frequencyMsg = "Frequency must be greater than 0.";
+    }
+    if (isNaN(amplitude) || amplitude < 0 || amplitude > 1) {
+      amplitudeMsg = "Amplitude must be from 0 to 1.";
+    }
+    if (!Number.isInteger(samples) || samples < 2 || samples > 64) {
+      samplesMsg = "Samples must be a whole number from 2 to 64.";
+    }
+    if (!Number.isInteger(bits) || bits < 1 || bits > 8) {
+      bitsMsg = "Bits must be a whole number from 1 to 8.";
+    }
+
+    setStatus("statFrequency", frequencyMsg);
+    setStatus("statAmplitude", amplitudeMsg);
+    setStatus("statSamples", samplesMsg);
+    setStatus("statBits", bitsMsg);
+
+    setFieldError("frequency", "errFrequency", frequencyMsg);
+    setFieldError("amplitude", "errAmplitude", amplitudeMsg);
+    setFieldError("samples", "errSamples", samplesMsg);
+    setFieldError("bits", "errBits", bitsMsg);
+
+    var problems = [];
+    if (frequencyMsg !== "") { problems.push(frequencyMsg); }
+    if (amplitudeMsg !== "") { problems.push(amplitudeMsg); }
+    if (samplesMsg !== "") { problems.push(samplesMsg); }
+    if (bitsMsg !== "") { problems.push(bitsMsg); }
+
+    var tableBody = document.getElementById("sampleBody");
+
+    if (problems.length > 0) {
+      if (problems.length === 1) {
+        showFeedback("\u26A0 Can't convert: 1 input is not valid. Fix the highlighted box above and press Convert again.");
+      } else {
+        showFeedback("\u26A0 Can't convert: " + problems.length + " inputs are not valid. Fix the highlighted boxes above and press Convert again.");
+      }
+      showWarning(problems);
+      document.getElementById("outAmplitude").textContent = "—";
+      document.getElementById("outFrequency").textContent = "—";
+      document.getElementById("outPeriod").textContent = "—";
+      document.getElementById("outWavelength").textContent = "—";
+      tableBody.innerHTML = "";
+      document.getElementById("binaryResult").textContent = "";
+      document.getElementById("totalBits").textContent = "—";
+      return;
+    }
+
+    showFeedback("");
+    clearWarning();
+    var result = calculate(frequency, amplitude, samples, bits);
+
+    document.getElementById("outAmplitude").textContent = amplitudeText;
+    document.getElementById("outFrequency").textContent = frequencyText + " Hz";
+    document.getElementById("outPeriod").textContent = result.periodText;
+    document.getElementById("outWavelength").textContent = result.wavelengthText;
+
+    var html = "";
+    for (var i = 0; i < result.rows.length; i++) {
+      var r = result.rows[i];
+      html += "<tr>" +
+                "<td>" + r.number + "</td>" +
+                "<td>" + r.time + "</td>" +
+                "<td>" + r.height + "</td>" +
+                "<td>" + r.level + "</td>" +
+                "<td>" + r.binary + "</td>" +
+              "</tr>";
+    }
+    tableBody.innerHTML = html;
+
+    document.getElementById("binaryResult").textContent = result.binaryText;
+    document.getElementById("totalBits").textContent = result.totalBits;
+  });
+
+  var tests = [
+    { name: "A", frequency: 440, amplitude: 0.8, samples: 8, bits: 3 },
+    { name: "B", frequency: 200, amplitude: 0.5, samples: 6, bits: 4 },
+    { name: "C", frequency: 500, amplitude: 0.9, samples: 5, bits: 3 }
+  ];
+
+  var testHtml = "";
+  for (var t = 0; t < tests.length; t++) {
+    var test = tests[t];
+    var out = calculate(test.frequency, test.amplitude, test.samples, test.bits);
+
+    testHtml += "<tr>" +
+                  "<td>" + test.name + "</td>" +
+                  "<td>" + test.frequency + "</td>" +
+                  "<td>" + test.amplitude + "</td>" +
+                  "<td>" + test.samples + "</td>" +
+                  "<td>" + test.bits + "</td>" +
+                  "<td>" + out.periodText + "</td>" +
+                  "<td>" + out.wavelengthText + "</td>" +
+                  "<td>" + out.totalBits + "</td>" +
+                  "<td>" + out.binaryText + "</td>" +
+                "</tr>";
+  }
+  document.getElementById("testBody").innerHTML = testHtml;
+
+  document.getElementById("playBtn").addEventListener("click", function () {
+    var playBtn = document.getElementById("playBtn");
+    var frequency = parseFloat(document.getElementById("frequency").value);
+
+    updateHearing();
+
+    if (isNaN(frequency) || frequency <= 0) {
+      setStatus("statFrequency", "Frequency must be greater than 0.");
+      setFieldError("frequency", "errFrequency", "Frequency must be greater than 0.");
+      showFeedback("\u26A0 Can't play: the frequency is not valid. Fix the highlighted box above and press Play again.");
+      showWarning(["Frequency must be greater than 0."]);
+      return;
+    }
+    if (frequency < 20 || frequency > 20000) {
+      setFieldError("frequency", "errFrequency", "Play works from 20 Hz to 20000 Hz.");
+      showFeedback("\u26A0 Can't play: people can only hear 20 Hz to 20000 Hz. Change the frequency and press Play again.");
+      showWarning(["Play only works for frequencies from 20 Hz to 20000 Hz (the range people can hear)."]);
+      return;
+    }
+    setFieldError("frequency", "errFrequency", "");
+    showFeedback("");
+    clearWarning();
+
+    var audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    var oscillator = audioContext.createOscillator();
+    var gainNode = audioContext.createGain();
+    var analyser = audioContext.createAnalyser();
+    analyser.fftSize = 8192;
+
+    oscillator.type = "sine";
+    oscillator.frequency.value = frequency;
+
+    var now = audioContext.currentTime;
+    gainNode.gain.setValueAtTime(0, now);
+    gainNode.gain.linearRampToValueAtTime(0.2, now + 0.05);
+    gainNode.gain.setValueAtTime(0.2, now + 0.95);
+    gainNode.gain.linearRampToValueAtTime(0, now + 1);
+
+    oscillator.connect(gainNode);
+    gainNode.connect(analyser);
+    analyser.connect(audioContext.destination);
+
+    oscillator.start(now);
+    oscillator.stop(now + 1);
+
+    playBtn.disabled = true;
+    sizeCanvas();
+
+    function frame() {
+      drawWave(analyser, frequency, audioContext.sampleRate);
+      animationId = requestAnimationFrame(frame);
+    }
+    frame();
+
+    oscillator.onended = function () {
+      cancelAnimationFrame(animationId);
+      animationId = null;
+      drawIdle();
+      playBtn.disabled = false;
+      audioContext.close();
+    };
+  });
+</script>
+
+</body>
+</html>
